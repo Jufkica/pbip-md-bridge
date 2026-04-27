@@ -4,6 +4,7 @@ PBIP Markdown Bridge is a static web app that converts:
 - **Markdown package → PBIP ZIP**
 
 It is designed for AI-assisted workflows where a PBIP project is exchanged as a single editable text file.
+Live GitHub Pages site: https://jufkica.github.io/pbip-md-bridge/
 
 ## Features
 - Browser-only conversion (no backend required)
