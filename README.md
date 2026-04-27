@@ -12,6 +12,7 @@ Live GitHub Pages site: https://jufkica.github.io/pbip-md-bridge/
 - UTF-8 and Base64 file payload support
 - SHA-256 + byte-size validation on rebuild
 - Path safety checks (rejects absolute paths, `..`, duplicates)
+- Optional metadata recomputation mode for stale byte/hash headers
 - Optional inclusion of transient Power BI artifacts
 
 ## Quick start
@@ -20,6 +21,7 @@ Live GitHub Pages site: https://jufkica.github.io/pbip-md-bridge/
 2. Upload a PBIP `.zip` in **ZIP → Markdown** and download the generated `.md`.
 3. Edit the `.md` with your AI workflow.
 4. Upload edited `.md` in **Markdown → ZIP** and download rebuilt `.zip`.
+5. If conversion fails due stale metadata (common after line-ending normalization), enable **Recompute metadata** and reconvert.
 
 ### Run local verification test
 ```bash path=null start=null
@@ -59,7 +61,7 @@ File block structure:
 - Payload in a fenced block (`text` for UTF-8, `base64` for binary)
 
 ## Validation behavior
-On Markdown → ZIP conversion, invalid packages are rejected for:
+On Markdown → ZIP conversion in strict mode, invalid packages are rejected for:
 - malformed or missing metadata
 - duplicate file paths
 - unsafe paths (`..`, drive-root/absolute paths, empty segments)
@@ -67,6 +69,11 @@ On Markdown → ZIP conversion, invalid packages are rejected for:
 - invalid Base64 payloads
 - byte-length mismatch
 - SHA-256 mismatch
+
+With **Recompute metadata** enabled:
+- conversion uses payload bytes as source of truth
+- stale `bytes` / `sha256` headers are recomputed automatically
+- a corrected `.recomputed.md` package is offered for download when mismatches are detected
 
 ## Transient Power BI artifacts
 The UI toggle can include/exclude:

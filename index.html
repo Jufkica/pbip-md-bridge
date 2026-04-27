@@ -40,11 +40,16 @@
           <input id="mdInput" type="file" accept=".md,text/markdown,text/plain" />
           <span>Drop .md here or click to browse</span>
         </label>
+        <label class="checkbox">
+          <input id="recomputeMetadata" type="checkbox" />
+          Recompute metadata (bytes/hash) from file payloads if package metadata is stale
+        </label>
         <div class="actions">
           <button id="mdToZipBtn">Convert Markdown to ZIP</button>
         </div>
         <pre id="mdToZipSummary" class="summary"></pre>
         <a id="mdToZipDownload" class="download hidden" download>Download rebuilt ZIP</a>
+        <a id="mdRecomputedDownload" class="download hidden" download>Download recomputed Markdown package</a>
       </section>
     </main>
 

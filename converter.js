@@ -141,7 +141,7 @@ function escapeJsonForComment(metadata) {
 
 function parseMetadata(markdown) {
   const match = markdown.match(
-    /<!-- PBIPMD:METADATA\n([\s\S]*?)\nPBIPMD:METADATA -->/
+    /<!-- PBIPMD:METADATA\r?\n([\s\S]*?)\r?\nPBIPMD:METADATA -->/
   );
   if (!match) throw new Error("Metadata block not found.");
   const meta = JSON.parse(match[1]);
@@ -160,39 +160,8 @@ function chooseFence(content) {
   return "`".repeat(ticks);
 }
 
-export async function zipFileToMarkdown(zipFile, options = {}) {
-  const includeTransient = options.includeTransient ?? true;
-  if (!window.JSZip) throw new Error("JSZip is not loaded.");
-
-  const zip = await window.JSZip.loadAsync(zipFile);
-  const entries = [];
-  let excludedTransient = 0;
-
-  const names = Object.keys(zip.files).sort((a, b) => a.localeCompare(b));
-  for (const name of names) {
-    const file = zip.files[name];
-    if (file.dir) continue;
-    const path = normalizePath(name);
-    if (!isSafeRelativePath(path)) {
-      throw new Error(`Unsafe path in ZIP: ${path}`);
-    }
-    if (!includeTransient && isTransientPath(path)) {
-      excludedTransient += 1;
-      continue;
-    }
-    const bytes = await file.async("uint8array");
-    const { encoding, content } = classifyFile(path, bytes);
-    const sha256 = await sha256Hex(bytes);
-    entries.push({
-      path,
-      encoding,
-      bytes: bytes.length,
-      sha256,
-      content
-    });
-  }
-
-  const sorted = entries.sort((a, b) => a.path.localeCompare(b.path));
+function buildMarkdownPackage(entries, metadataInput = {}) {
+  const sorted = [...entries].sort((a, b) => a.path.localeCompare(b.path));
   const fileCount = sorted.length;
   const binaryCount = sorted.filter((e) => e.encoding === "base64").length;
   const totalBytes = sorted.reduce((sum, e) => sum + e.bytes, 0);
@@ -200,12 +169,10 @@ export async function zipFileToMarkdown(zipFile, options = {}) {
     magic: FORMAT_MAGIC,
     formatVersion: FORMAT_VERSION,
     generatedUtc: new Date().toISOString(),
-    sourceZipName: zipFile.name,
+    ...metadataInput,
     fileCount,
     binaryCount,
-    totalBytes,
-    excludedTransient,
-    includeTransient
+    totalBytes
   };
 
   const indexLines = sorted.map(
@@ -249,9 +216,50 @@ export async function zipFileToMarkdown(zipFile, options = {}) {
     ""
   ].join("\n");
 
+  return { markdown, metadata, files: sorted };
+}
+
+export async function zipFileToMarkdown(zipFile, options = {}) {
+  const includeTransient = options.includeTransient ?? true;
+  if (!window.JSZip) throw new Error("JSZip is not loaded.");
+
+  const zip = await window.JSZip.loadAsync(zipFile);
+  const entries = [];
+  let excludedTransient = 0;
+
+  const names = Object.keys(zip.files).sort((a, b) => a.localeCompare(b));
+  for (const name of names) {
+    const file = zip.files[name];
+    if (file.dir) continue;
+    const path = normalizePath(name);
+    if (!isSafeRelativePath(path)) {
+      throw new Error(`Unsafe path in ZIP: ${path}`);
+    }
+    if (!includeTransient && isTransientPath(path)) {
+      excludedTransient += 1;
+      continue;
+    }
+    const bytes = await file.async("uint8array");
+    const { encoding, content } = classifyFile(path, bytes);
+    const sha256 = await sha256Hex(bytes);
+    entries.push({
+      path,
+      encoding,
+      bytes: bytes.length,
+      sha256,
+      content
+    });
+  }
+
+  const packageBuild = buildMarkdownPackage(entries, {
+    sourceZipName: zipFile.name,
+    excludedTransient,
+    includeTransient
+  });
+
   return {
-    markdown,
-    metadata
+    markdown: packageBuild.markdown,
+    metadata: packageBuild.metadata
   };
 }
 
@@ -328,35 +336,87 @@ async function decodeFileToBytes(file) {
   throw new Error(`Unknown encoding ${file.encoding} for file: ${file.path}`);
 }
 
-export async function markdownToZipBlob(markdownText, outputZipName = "pbip-project.zip") {
-  if (!window.JSZip) throw new Error("JSZip is not loaded.");
+export async function recomputeMarkdownPackageMetadata(markdownText) {
   const parsed = parseMarkdownPackage(markdownText);
-  const zip = new window.JSZip();
-  const validation = [];
+  const recomputedFiles = [];
 
   for (const file of parsed.files) {
     const bytes = await decodeFileToBytes(file);
     const hash = await sha256Hex(bytes);
-    if (bytes.length !== file.bytes) {
+    recomputedFiles.push({
+      path: file.path,
+      encoding: file.encoding,
+      bytes: bytes.length,
+      sha256: hash,
+      content: file.content
+    });
+  }
+
+  return buildMarkdownPackage(recomputedFiles, parsed.metadata);
+}
+
+export async function markdownToZipBlob(
+  markdownText,
+  outputZipName = "pbip-project.zip",
+  options = {}
+) {
+  if (!window.JSZip) throw new Error("JSZip is not loaded.");
+  const recomputeMetadata = options.recomputeMetadata ?? false;
+  const parsed = parseMarkdownPackage(markdownText);
+  const zip = new window.JSZip();
+  const validation = [];
+  const recomputedFiles = [];
+  let metadataMismatchCount = 0;
+
+  for (const file of parsed.files) {
+    const bytes = await decodeFileToBytes(file);
+    const hash = await sha256Hex(bytes);
+    const byteMismatch = bytes.length !== file.bytes;
+    const hashMismatch = hash !== file.sha256;
+    const hasMismatch = byteMismatch || hashMismatch;
+
+    if (byteMismatch && !recomputeMetadata) {
       throw new Error(
         `Byte length mismatch for ${file.path}. Package: ${file.bytes}, actual: ${bytes.length}`
       );
     }
-    if (hash !== file.sha256) {
+    if (hashMismatch && !recomputeMetadata) {
       throw new Error(
         `SHA-256 mismatch for ${file.path}. Package: ${file.sha256}, actual: ${hash}`
       );
     }
+
+    if (hasMismatch) metadataMismatchCount += 1;
     zip.file(file.path, bytes);
-    validation.push({ path: file.path, bytes: bytes.length, sha256: hash });
+    validation.push({
+      path: file.path,
+      bytes: bytes.length,
+      sha256: hash,
+      metadataMismatch: hasMismatch
+    });
+    recomputedFiles.push({
+      path: file.path,
+      encoding: file.encoding,
+      bytes: bytes.length,
+      sha256: hash,
+      content: file.content
+    });
   }
 
   const blob = await zip.generateAsync({ type: "blob" });
+  const recomputedPackage = recomputeMetadata
+    ? buildMarkdownPackage(recomputedFiles, parsed.metadata)
+    : null;
+
   return {
     blob,
     fileName: outputZipName,
     metadata: parsed.metadata,
-    files: validation
+    files: validation,
+    recomputeMetadataApplied: recomputeMetadata,
+    metadataMismatchCount,
+    recomputedMarkdown: recomputedPackage?.markdown ?? null,
+    recomputedMetadata: recomputedPackage?.metadata ?? null
   };
 }
 

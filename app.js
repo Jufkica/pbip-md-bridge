@@ -8,12 +8,14 @@ import {
 const zipInput = document.getElementById("zipInput");
 const mdInput = document.getElementById("mdInput");
 const includeTransient = document.getElementById("includeTransient");
+const recomputeMetadata = document.getElementById("recomputeMetadata");
 const zipToMdBtn = document.getElementById("zipToMdBtn");
 const mdToZipBtn = document.getElementById("mdToZipBtn");
 const zipToMdSummary = document.getElementById("zipToMdSummary");
 const mdToZipSummary = document.getElementById("mdToZipSummary");
 const zipToMdDownload = document.getElementById("zipToMdDownload");
 const mdToZipDownload = document.getElementById("mdToZipDownload");
+const mdRecomputedDownload = document.getElementById("mdRecomputedDownload");
 const statusLog = document.getElementById("statusLog");
 const zipDrop = document.getElementById("zipDrop");
 const mdDrop = document.getElementById("mdDrop");
@@ -95,20 +97,42 @@ mdToZipBtn.addEventListener("click", async () => {
     const file = mdInput.files?.[0];
     if (!file) throw new Error("Select a Markdown package first.");
     mdToZipDownload.classList.add("hidden");
+    mdRecomputedDownload.classList.add("hidden");
     setBusy(mdToZipBtn, true, "Converting...", "Convert Markdown to ZIP");
     setStatus(`MD→ZIP started for ${file.name}`);
 
     const markdownText = await file.text();
     const parsed = parseMarkdownPackage(markdownText);
     const outName = suggestOutputNames(file.name, "md-to-zip");
-    const { blob, files } = await markdownToZipBlob(markdownText, outName);
+    const {
+      blob,
+      files,
+      metadataMismatchCount,
+      recomputedMarkdown,
+      recomputeMetadataApplied
+    } = await markdownToZipBlob(markdownText, outName, {
+      recomputeMetadata: recomputeMetadata.checked
+    });
     downloadBlob(blob, outName, mdToZipDownload);
 
     mdToZipSummary.textContent =
       `Output: ${outName}\n` +
       `Validated files: ${files.length}\n` +
+      `Metadata mismatches handled: ${metadataMismatchCount}\n` +
+      `Recompute mode: ${recomputeMetadataApplied ? "ON" : "OFF"}\n` +
       `Format: ${parsed.metadata.magic} v${parsed.metadata.formatVersion}\n` +
       `Source zip name: ${parsed.metadata.sourceZipName ?? "(n/a)"}`;
+    if (recomputeMetadataApplied && recomputedMarkdown && metadataMismatchCount > 0) {
+      const repairedName = suggestOutputNames(file.name, "zip-to-md").replace(
+        /\.md$/i,
+        ".recomputed.md"
+      );
+      const repairedBlob = new Blob([recomputedMarkdown], {
+        type: "text/markdown;charset=utf-8"
+      });
+      downloadBlob(repairedBlob, repairedName, mdRecomputedDownload);
+      mdRecomputedDownload.textContent = `Download recomputed Markdown package (${repairedName})`;
+    }
     setStatus(`MD→ZIP completed for ${file.name}`);
   } catch (err) {
     setStatus(`MD→ZIP failed: ${err.message}`);
