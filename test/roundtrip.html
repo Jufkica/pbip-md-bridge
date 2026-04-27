@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PBIP Bridge Roundtrip Test</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <main class="container panel">
+      <h1>Roundtrip Test (Browser)</h1>
+      <p class="subtle">Runs ZIP → Markdown → ZIP and validates package parsing and hash checks.</p>
+      <label class="dropzone" id="zipDrop">
+        <input id="zipInput" type="file" accept=".zip,application/zip" />
+        <span>Drop ZIP here or click</span>
+      </label>
+      <label class="checkbox">
+        <input id="includeTransient" type="checkbox" checked />
+        Include transient files
+      </label>
+      <button id="runBtn">Run roundtrip test</button>
+      <pre id="log" class="status"></pre>
+      <a id="downloadMd" class="download hidden">Download generated markdown</a>
+      <a id="downloadZip" class="download hidden">Download rebuilt zip</a>
+      <p><a href="../index.html">Back to app</a></p>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script type="module">
+      import {
+        zipFileToMarkdown,
+        parseMarkdownPackage,
+        markdownToZipBlob
+      } from "../converter.js";
+
+      const zipInput = document.getElementById("zipInput");
+      const includeTransient = document.getElementById("includeTransient");
+      const runBtn = document.getElementById("runBtn");
+      const log = document.getElementById("log");
+      const downloadMd = document.getElementById("downloadMd");
+      const downloadZip = document.getElementById("downloadZip");
+      const zipDrop = document.getElementById("zipDrop");
+
+      function append(message) {
+        log.textContent += `${message}\n`;
+      }
+
+      function linkBlob(anchor, blob, filename) {
+        const url = URL.createObjectURL(blob);
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.textContent = `Download ${filename}`;
+        anchor.classList.remove("hidden");
+      }
+
+      zipDrop.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        zipDrop.classList.add("dragging");
+      });
+      zipDrop.addEventListener("dragleave", () => zipDrop.classList.remove("dragging"));
+      zipDrop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        zipDrop.classList.remove("dragging");
+        if (e.dataTransfer?.files?.length) zipInput.files = e.dataTransfer.files;
+      });
+
+      runBtn.addEventListener("click", async () => {
+        try {
+          log.textContent = "";
+          downloadMd.classList.add("hidden");
+          downloadZip.classList.add("hidden");
+          const file = zipInput.files?.[0];
+          if (!file) throw new Error("Select a ZIP first.");
+          append(`Input ZIP: ${file.name}`);
+
+          const { markdown, metadata } = await zipFileToMarkdown(file, {
+            includeTransient: includeTransient.checked
+          });
+          append(`ZIP→MD ok. files=${metadata.fileCount}, binary=${metadata.binaryCount}`);
+
+          const parsed = parseMarkdownPackage(markdown);
+          append(`Parse ok. format=${parsed.metadata.magic} v${parsed.metadata.formatVersion}`);
+
+          const { blob } = await markdownToZipBlob(markdown, `${file.name.replace(/\.zip$/i, "")}-roundtrip.zip`);
+          append("MD→ZIP ok. Hash/size validation passed.");
+
+          linkBlob(downloadMd, new Blob([markdown], { type: "text/markdown;charset=utf-8" }), `${file.name.replace(/\.zip$/i, "")}.md`);
+          linkBlob(downloadZip, blob, `${file.name.replace(/\.zip$/i, "")}-roundtrip.zip`);
+        } catch (error) {
+          append(`FAILED: ${error.message}`);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PBIP Markdown Bridge</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="container">
+      <h1>PBIP Markdown Bridge</h1>
+      <p class="subtle">
+        Convert a Power BI PBIP project ZIP into one Markdown package and convert it back into ZIP.
+      </p>
+    </header>
+
+    <main class="container grid">
+      <section class="panel">
+        <h2>ZIP → Markdown</h2>
+        <p class="subtle">Upload a PBIP ZIP and export one editable Markdown file.</p>
+        <label class="dropzone" id="zipDrop">
+          <input id="zipInput" type="file" accept=".zip,application/zip" />
+          <span>Drop .zip here or click to browse</span>
+        </label>
+        <label class="checkbox">
+          <input id="includeTransient" type="checkbox" checked />
+          Include transient Power BI files (<code>.pbi/cache.abf</code>, local editor settings)
+        </label>
+        <div class="actions">
+          <button id="zipToMdBtn">Convert ZIP to Markdown</button>
+        </div>
+        <pre id="zipToMdSummary" class="summary"></pre>
+        <a id="zipToMdDownload" class="download hidden" download>Download Markdown package</a>
+      </section>
+
+      <section class="panel">
+        <h2>Markdown → ZIP</h2>
+        <p class="subtle">Upload the modified package Markdown and rebuild the PBIP ZIP.</p>
+        <label class="dropzone" id="mdDrop">
+          <input id="mdInput" type="file" accept=".md,text/markdown,text/plain" />
+          <span>Drop .md here or click to browse</span>
+        </label>
+        <div class="actions">
+          <button id="mdToZipBtn">Convert Markdown to ZIP</button>
+        </div>
+        <pre id="mdToZipSummary" class="summary"></pre>
+        <a id="mdToZipDownload" class="download hidden" download>Download rebuilt ZIP</a>
+      </section>
+    </main>
+
+    <section class="container panel">
+      <h2>Validation & Notes</h2>
+      <ul>
+        <li>Rejects duplicate/unsafe paths (absolute paths, <code>..</code>, drive roots).</li>
+        <li>Verifies SHA-256 hash and byte size for every file block.</li>
+        <li>Supports UTF-8 text and Base64 binary blocks in one deterministic package format.</li>
+      </ul>
+      <p class="subtle">
+        Package format marker: <code>PBIPMD</code> (versioned in metadata).
+      </p>
+    </section>
+
+    <section class="container">
+      <details>
+        <summary>Current status / errors</summary>
+        <pre id="statusLog" class="status"></pre>
+      </details>
+    </section>
+
+    <footer class="container footer">
+      <a href="./test/roundtrip.html">Open browser roundtrip test</a>
+      <span>•</span>
+      <a href="./README.md">Read format and deployment guide</a>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

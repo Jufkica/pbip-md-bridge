@@ -1,0 +1,13 @@
+{
+  "name": "pbip-md-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static PBIP ZIP <-> Markdown bridge with local roundtrip verification script",
+  "type": "module",
+  "scripts": {
+    "test:roundtrip": "node ./test/roundtrip-node.mjs"
+  },
+  "devDependencies": {
+    "jszip": "^3.10.1"
+  }
+}
