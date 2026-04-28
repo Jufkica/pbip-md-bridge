@@ -67,6 +67,17 @@ body {
   margin: 8px 0 10px;
 }
 
+.text-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: #0f141b;
+  color: var(--text);
+  resize: vertical;
+  min-height: 140px;
+}
+
 button {
   background: var(--accent);
   color: white;

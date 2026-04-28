@@ -40,6 +40,13 @@
           <input id="mdInput" type="file" accept=".md,text/markdown,text/plain" />
           <span>Drop .md here or click to browse</span>
         </label>
+        <label class="subtle" for="mdPasteInput">Or paste package Markdown content:</label>
+        <textarea
+          id="mdPasteInput"
+          class="text-input"
+          rows="8"
+          placeholder="Paste full PBIP Markdown package here (including metadata and file blocks)."
+        ></textarea>
         <label class="checkbox">
           <input id="recomputeMetadata" type="checkbox" />
           Recompute metadata (bytes/hash) from file payloads if package metadata is stale
