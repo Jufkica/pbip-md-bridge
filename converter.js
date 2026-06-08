@@ -276,7 +276,7 @@ export function parseMarkdownPackage(markdown) {
   };
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const files = [];
-  const fileHeader = /^### FILE `(.+)`$/;
+  const fileHeader = /^#{2,3}\s+(?:FILE\s+)?`?([^\s`]+[./][^\s`]+)`?\s*$/;
   const encodingLine = /^- encoding: (utf8|base64)$/;
   const bytesLine = /^- bytes: (\d+)$/;
   const hashLine = /^- sha256: ([a-f0-9]{64})$/;

@@ -154,7 +154,62 @@ async function runSyntheticMetadataTest() {
   };
 }
 
-Promise.all([runRoundtripTest(), runRecomputeModeTest(), runSyntheticMetadataTest()])
+async function runAltHeaderFormatTest() {
+  const markdown = [
+    "<!-- pbip-md v1 -->",
+    "<!-- files",
+    '{"path":"sample/report.json","size":0,"hash":""}',
+    '{"path":"config/settings.tmdl","size":0,"hash":""}',
+    "-->",
+    "",
+    "## sample/report.json",
+    "",
+    "```json",
+    '{"a":1}',
+    "```",
+    "",
+    "## config/settings.tmdl",
+    "",
+    "```tmdl",
+    "table Foo",
+    "\tcolumn Bar",
+    "\t\tdataType: string",
+    "```",
+    ""
+  ].join("\n");
+
+  const parsed = parseMarkdownPackage(markdown);
+  assert(
+    parsed.syntheticMetadata === true,
+    "Expected syntheticMetadata for alt-header format."
+  );
+  assert(
+    parsed.files.length === 2,
+    `Expected 2 files from alt-header format, got ${parsed.files.length}`
+  );
+  assert(
+    parsed.files[0].path === "sample/report.json",
+    `Unexpected first file path: ${parsed.files[0].path}`
+  );
+
+  const result = await markdownToZipBlob(markdown, "alt-header-test.zip");
+  const rebuiltZip = await JSZip.loadAsync(await result.blob.arrayBuffer());
+  const rebuiltEntries = Object.keys(rebuiltZip.files)
+    .filter((name) => !rebuiltZip.files[name].dir)
+    .sort();
+  assert(
+    JSON.stringify(rebuiltEntries) === JSON.stringify(["config/settings.tmdl", "sample/report.json"]),
+    `Unexpected entries: ${JSON.stringify(rebuiltEntries)}`
+  );
+
+  return {
+    test: "alt-header-format",
+    fileCount: result.files.length,
+    syntheticMetadata: result.syntheticMetadata
+  };
+}
+
+Promise.all([runRoundtripTest(), runRecomputeModeTest(), runSyntheticMetadataTest(), runAltHeaderFormatTest()])
   .then((tests) => {
     console.log(
       JSON.stringify(
