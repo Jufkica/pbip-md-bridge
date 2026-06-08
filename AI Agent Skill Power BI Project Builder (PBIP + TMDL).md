@@ -78,7 +78,7 @@ Use exactly these `$schema` URLs and version values:
 - `visual.json` files:
   - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.6.0/schema.json"`
 - `<ProjectName>.SemanticModel/definition.pbism`:
-  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/semanticModelDefinitionProperties/1.0.0/schema.json"`
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/definitionProperties/1.0.0/schema.json"`
   - `"version": "4.0"`
 - `database.tmdl` → `compatibilityLevel: 1605`
 
@@ -295,7 +295,7 @@ Below is a minimal example showing the expected output structure for a project c
 ### FILE `MyReport.SemanticModel/definition.pbism`
 ```text
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/semanticModelDefinitionProperties/1.0.0/schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/definitionProperties/1.0.0/schema.json",
   "version": "4.0",
   "settings": {}
 }
