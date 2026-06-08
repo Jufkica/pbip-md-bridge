@@ -58,17 +58,31 @@ For modern Desktop/TMDL projects, use:
 - `<ProjectName>.SemanticModel/definition/tables/*.tmdl`
 - Optional: `definition/relationships.tmdl` only when relationship metadata resolves correctly.
 
-3.4 Required version values (CRITICAL)
+3.4 Required `$schema` and version values (CRITICAL)
 
-Use exactly these version strings. Versions are always two-part (`X.Y`), never three-part (`X.Y.Z`).
+Every JSON file in the report definition MUST include a `$schema` property. Power BI Desktop will reject files missing `$schema` with "Can't find '$schema' property" errors.
 
-- `<ProjectName>.pbip` → `"version": "1.0"`
-- `<ProjectName>.Report/definition.pbir` → `"version": "4.0"`
-- `<ProjectName>.Report/definition/version.json` → `"version": "4.0"`
-- `<ProjectName>.SemanticModel/definition.pbism` → `"version": "4.0"`
+Use exactly these `$schema` URLs and version values:
+
+- `<ProjectName>.pbip`:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/pbip/pbipProperties/1.0.0/schema.json"`
+  - `"version": "1.0"`
+- `<ProjectName>.Report/definition.pbir`:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json"`
+  - `"version": "4.0"`
+- `<ProjectName>.Report/definition/version.json`:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json"`
+  - `"version": "2.0.0"`
+- `<ProjectName>.Report/definition/report.json`:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.0.0/schema.json"`
+- `visual.json` files:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.6.0/schema.json"`
+- `<ProjectName>.SemanticModel/definition.pbism`:
+  - `"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/semanticModelDefinitionProperties/1.0.0/schema.json"`
+  - `"version": "4.0"`
 - `database.tmdl` → `compatibilityLevel: 1605`
 
-Do NOT guess version numbers. Do NOT use three-part versions like `"4.0.0"`. Power BI Desktop will reject any version it cannot resolve.
+Do NOT guess version numbers, schema URLs, or omit `$schema`. Do NOT use three-part versions like `"4.0.0"`. Power BI Desktop will reject any version or schema it cannot resolve.
 
 4. Known Compatibility Pitfalls (Critical)
 
@@ -107,13 +121,14 @@ Fix:
 
 Symptom:
 
-- "Can't resolve schema 'X.Y.Z' in 'version.json'."
+- "Can't resolve schema 'X.Y.Z' in 'version.json'." or "Can't find '$schema' property in 'version.json'."
 
 Fix:
 
+- Every JSON file MUST have a `$schema` property with the correct URL.
 - Use two-part version strings (`"4.0"`, not `"4.0.0"`).
-- Use the exact version values listed in section 3.4.
-- Do not invent or increment version numbers.
+- Use the exact `$schema` URLs and version values listed in section 3.4.
+- Do not invent or increment version numbers or schema URLs.
 
 4.5 Blank report canvas despite model loading
 
@@ -224,6 +239,7 @@ Below is a minimal example showing the expected output structure for a project c
 ### FILE `MyReport.pbip`
 ```text
 {
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/pbip/pbipProperties/1.0.0/schema.json",
   "version": "1.0",
   "artifacts": [
     {
@@ -231,14 +247,14 @@ Below is a minimal example showing the expected output structure for a project c
         "path": "MyReport.Report"
       }
     }
-  ],
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/pbip/pbipProperties/1.0.0/schema.json"
+  ]
 }
 ```
 
 ### FILE `MyReport.Report/definition.pbir`
 ```text
 {
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
   "version": "4.0",
   "datasetReference": {
     "byPath": {
@@ -251,17 +267,19 @@ Below is a minimal example showing the expected output structure for a project c
 ### FILE `MyReport.Report/definition/version.json`
 ```text
 {
-  "version": "4.0"
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
+  "version": "2.0.0"
 }
 ```
 
 ### FILE `MyReport.Report/definition/report.json`
 ```text
 {
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.0.0/schema.json",
   "themeCollection": {
     "baseTheme": {
       "name": "CY24SU06",
-      "version": "5.54",
+      "reportVersionAtImport": "5.54",
       "type": "SharedResources"
     }
   },
@@ -277,6 +295,7 @@ Below is a minimal example showing the expected output structure for a project c
 ### FILE `MyReport.SemanticModel/definition.pbism`
 ```text
 {
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/semanticModelDefinitionProperties/1.0.0/schema.json",
   "version": "4.0",
   "settings": {}
 }
@@ -297,6 +316,7 @@ database MyReport
 - File order does not matter; the converter sorts them.
 - Do not wrap the entire output in an outer code fence. Each file block uses its own fence.
 - Ensure JSON files are valid JSON and TMDL files use tab indentation.
+- Every JSON file MUST include the correct `$schema` property (see section 3.4). Missing `$schema` causes load failures.
 
 9. Minimum Visual Set for "Active lots per workstation" Dashboard
 
