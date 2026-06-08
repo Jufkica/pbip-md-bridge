@@ -36,7 +36,6 @@ Must point to the report folder artifact:
 3.2 Report artifact
 
 - `<ProjectName>.Report/definition.pbir`
-  - version should match working local sample (commonly `4.0`)
   - dataset reference path should be `../<ProjectName>.SemanticModel`
 - Enhanced report format expected:
   - `definition/version.json`
@@ -58,6 +57,18 @@ For modern Desktop/TMDL projects, use:
 - `<ProjectName>.SemanticModel/definition/cultures/en-US.tmdl`
 - `<ProjectName>.SemanticModel/definition/tables/*.tmdl`
 - Optional: `definition/relationships.tmdl` only when relationship metadata resolves correctly.
+
+3.4 Required version values (CRITICAL)
+
+Use exactly these version strings. Versions are always two-part (`X.Y`), never three-part (`X.Y.Z`).
+
+- `<ProjectName>.pbip` → `"version": "1.0"`
+- `<ProjectName>.Report/definition.pbir` → `"version": "4.0"`
+- `<ProjectName>.Report/definition/version.json` → `"version": "4.0"`
+- `<ProjectName>.SemanticModel/definition.pbism` → `"version": "4.0"`
+- `database.tmdl` → `compatibilityLevel: 1605`
+
+Do NOT guess version numbers. Do NOT use three-part versions like `"4.0.0"`. Power BI Desktop will reject any version it cannot resolve.
 
 4. Known Compatibility Pitfalls (Critical)
 
@@ -92,7 +103,19 @@ Fix:
 - Remove or rebuild the offending relationship definition.
 - If needed, simplify to a single table model first, then reintroduce relationships after successful load.
 
-4.4 Blank report canvas despite model loading
+4.4 Version schema resolution failure
+
+Symptom:
+
+- "Can't resolve schema 'X.Y.Z' in 'version.json'."
+
+Fix:
+
+- Use two-part version strings (`"4.0"`, not `"4.0.0"`).
+- Use the exact version values listed in section 3.4.
+- Do not invent or increment version numbers.
+
+4.5 Blank report canvas despite model loading
 
 Symptom:
 
@@ -228,7 +251,7 @@ Below is a minimal example showing the expected output structure for a project c
 ### FILE `MyReport.Report/definition/version.json`
 ```text
 {
-  "version": "5.0"
+  "version": "4.0"
 }
 ```
 
