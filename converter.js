@@ -143,7 +143,7 @@ function parseMetadata(markdown) {
   const match = markdown.match(
     /<!-- PBIPMD:METADATA\r?\n([\s\S]*?)\r?\nPBIPMD:METADATA -->/
   );
-  if (!match) throw new Error("Metadata block not found.");
+  if (!match) return null;
   const meta = JSON.parse(match[1]);
   if (meta.magic !== FORMAT_MAGIC) throw new Error("Invalid package magic.");
   if (meta.formatVersion !== FORMAT_VERSION) {
@@ -265,6 +265,15 @@ export async function zipFileToMarkdown(zipFile, options = {}) {
 
 export function parseMarkdownPackage(markdown) {
   const meta = parseMetadata(markdown);
+  const syntheticMetadata = meta === null;
+  const effectiveMeta = meta ?? {
+    magic: FORMAT_MAGIC,
+    formatVersion: FORMAT_VERSION,
+    generatedUtc: null,
+    fileCount: 0,
+    binaryCount: 0,
+    totalBytes: 0
+  };
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const files = [];
   const fileHeader = /^### FILE `(.+)`$/;
@@ -280,15 +289,33 @@ export function parseMarkdownPackage(markdown) {
     if (!isSafeRelativePath(path)) {
       throw new Error(`Unsafe file path in package: ${path}`);
     }
-    const enc = lines[i + 1]?.match(encodingLine)?.[1];
-    const byteStr = lines[i + 2]?.match(bytesLine)?.[1];
-    const sha = lines[i + 3]?.match(hashLine)?.[1];
-    const fenceMatch = lines[i + 4]?.match(fenceStart);
-    if (!enc || !byteStr || !sha || !fenceMatch) {
-      throw new Error(`Malformed file header block for: ${path}`);
+    let enc = null;
+    let byteStr = null;
+    let sha = null;
+    let fenceMatch = null;
+    let fenceLine = -1;
+    for (let k = i + 1; k < Math.min(i + 10, lines.length); k++) {
+      if (!enc) {
+        const m = lines[k].match(encodingLine);
+        if (m) { enc = m[1]; continue; }
+      }
+      if (byteStr === null) {
+        const m = lines[k].match(bytesLine);
+        if (m) { byteStr = m[1]; continue; }
+      }
+      if (!sha) {
+        const m = lines[k].match(hashLine);
+        if (m) { sha = m[1]; continue; }
+      }
+      fenceMatch = lines[k].match(fenceStart);
+      if (fenceMatch) { fenceLine = k; break; }
     }
+    if (!fenceMatch) {
+      throw new Error(`Missing code fence for file: ${path}`);
+    }
+    enc = enc || (fenceMatch[2] === "base64" ? "base64" : "utf8");
     const fence = fenceMatch[1];
-    let j = i + 5;
+    let j = fenceLine + 1;
     const payload = [];
     while (j < lines.length && lines[j] !== fence) {
       payload.push(lines[j]);
@@ -300,8 +327,8 @@ export function parseMarkdownPackage(markdown) {
     files.push({
       path,
       encoding: enc,
-      bytes: Number(byteStr),
-      sha256: sha,
+      bytes: byteStr !== null ? Number(byteStr) : 0,
+      sha256: sha || "",
       content: payload.join("\n")
     });
     i = j;
@@ -319,7 +346,7 @@ export function parseMarkdownPackage(markdown) {
     dupes.add(file.path);
   }
 
-  return { metadata: meta, files };
+  return { metadata: effectiveMeta, files, syntheticMetadata };
 }
 
 async function decodeFileToBytes(file) {
@@ -361,8 +388,8 @@ export async function markdownToZipBlob(
   options = {}
 ) {
   if (!window.JSZip) throw new Error("JSZip is not loaded.");
-  const recomputeMetadata = options.recomputeMetadata ?? false;
   const parsed = parseMarkdownPackage(markdownText);
+  const recomputeMetadata = (options.recomputeMetadata ?? false) || parsed.syntheticMetadata;
   const zip = new window.JSZip();
   const validation = [];
   const recomputedFiles = [];
@@ -414,6 +441,7 @@ export async function markdownToZipBlob(
     metadata: parsed.metadata,
     files: validation,
     recomputeMetadataApplied: recomputeMetadata,
+    syntheticMetadata: parsed.syntheticMetadata,
     metadataMismatchCount,
     recomputedMarkdown: recomputedPackage?.markdown ?? null,
     recomputedMetadata: recomputedPackage?.metadata ?? null

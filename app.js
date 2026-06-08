@@ -114,7 +114,8 @@ mdToZipBtn.addEventListener("click", async () => {
       files,
       metadataMismatchCount,
       recomputedMarkdown,
-      recomputeMetadataApplied
+      recomputeMetadataApplied,
+      syntheticMetadata: metadataWasSynthetic
     } = await markdownToZipBlob(markdownText, outName, {
       recomputeMetadata: recomputeMetadata.checked
     });
@@ -124,6 +125,7 @@ mdToZipBtn.addEventListener("click", async () => {
       `Output: ${outName}\n` +
       `Input source: ${pastedMarkdown ? "paste" : "file"}\n` +
       `Validated files: ${files.length}\n` +
+      (metadataWasSynthetic ? `Metadata: auto-generated (no metadata block found)\n` : "") +
       `Metadata mismatches handled: ${metadataMismatchCount}\n` +
       `Recompute mode: ${recomputeMetadataApplied ? "ON" : "OFF"}\n` +
       `Format: ${parsed.metadata.magic} v${parsed.metadata.formatVersion}\n` +

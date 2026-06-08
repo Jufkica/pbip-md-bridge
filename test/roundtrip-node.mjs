@@ -100,7 +100,61 @@ async function runRecomputeModeTest() {
   };
 }
 
-Promise.all([runRoundtripTest(), runRecomputeModeTest()])
+async function runSyntheticMetadataTest() {
+  const markdown = [
+    "# PBIP Markdown Package",
+    "",
+    "## Files",
+    "### FILE `sample/report.json`",
+    "- encoding: utf8",
+    "```text",
+    '{"a":1}',
+    "```",
+    "### FILE `data/binary.bin`",
+    "```base64",
+    "BQYHCAk=",
+    "```",
+    ""
+  ].join("\n");
+
+  const parsed = parseMarkdownPackage(markdown);
+  assert(
+    parsed.syntheticMetadata === true,
+    "Expected syntheticMetadata flag from parseMarkdownPackage."
+  );
+
+  const result = await markdownToZipBlob(markdown, "synthetic-test.zip");
+  assert(
+    result.syntheticMetadata === true,
+    "Expected syntheticMetadata to be true for package without metadata block."
+  );
+  assert(
+    result.recomputeMetadataApplied === true,
+    "Expected recompute mode to be auto-enabled for synthetic metadata."
+  );
+  assert(
+    result.files.length === 2,
+    `Expected 2 files, got ${result.files.length}`
+  );
+
+  const rebuiltZip = await JSZip.loadAsync(await result.blob.arrayBuffer());
+  const rebuiltEntries = Object.keys(rebuiltZip.files)
+    .filter((name) => !rebuiltZip.files[name].dir)
+    .sort();
+  assert(
+    JSON.stringify(rebuiltEntries) === JSON.stringify(["data/binary.bin", "sample/report.json"]),
+    `Unexpected entries: ${JSON.stringify(rebuiltEntries)}`
+  );
+
+  return {
+    test: "synthetic-metadata",
+    syntheticMetadata: result.syntheticMetadata,
+    recomputeAutoEnabled: result.recomputeMetadataApplied,
+    fileCount: result.files.length
+  };
+}
+
+Promise.all([runRoundtripTest(), runRecomputeModeTest(), runSyntheticMetadataTest()])
   .then((tests) => {
     console.log(
       JSON.stringify(
